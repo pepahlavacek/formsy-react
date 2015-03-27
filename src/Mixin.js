@@ -3,6 +3,7 @@ module.exports = {
     return {
       _value: this.props.value ? this.props.value : '',
       _isValid: true,
+      _errors: [],
       _isPristine: true
     };
   },
@@ -104,7 +105,14 @@ module.exports = {
     return this.state._value !== '';
   },
   getErrorMessage: function () {
-    return this.isValid() || this.showRequired() ? null : this.state._serverError || this.props.validationError;
+    if (this.isValid()) {
+      return [];
+    } else if (this.state._serverError) {
+      return [this.state._serverError];
+    } else {
+      return this.state._errors;
+    }
+    // return this.isValid() || this.showRequired() ? null : this.state._serverError || this.props.validationError;
   },
   isFormDisabled: function () {
     return this.props._isFormDisabled();

@@ -218,17 +218,20 @@ Formsy.Form = React.createClass({
 
     // Run through the validations, split them up and call
     // the validator IF there is a value or it is required
-    var isValid = this.runValidation(component);
+    var errors = this.runValidation(component);
+    var isValid = (errors.length) ? false : true;
 
     component.setState({
       _isValid: isValid,
-      _serverError: null
+      _serverError: null,
+      _errors: errors
     }, this.validateForm);
 
   },
 
   runValidation: function (component) {
     var isValid = true;
+    var errors = [];
     if (component._validations.length && (component.props.required || component.state._value !== '')) {
       component._validations.split(',').forEach(function (validation) {
         var args = validation.split(':');
@@ -244,12 +247,16 @@ Formsy.Form = React.createClass({
         if (!validationRules[validateMethod]) {
           throw new Error('Formsy does not have the validation rule: ' + validateMethod);
         }
-        if (!validationRules[validateMethod].apply(this.getCurrentValues(), args)) {
+
+        var res = validationRules[validateMethod].apply(this.getCurrentValues(), args);
+        if (res.length) {
+          errors.push(res);
           isValid = false;
         }
       }.bind(this));
     }
-    return isValid;
+
+    return errors;
   },
 
   // Validate the form by going through all child input components
@@ -289,9 +296,11 @@ Formsy.Form = React.createClass({
     // last component validated will run the onValidationComplete callback
     inputKeys.forEach(function (name, index) {
       var component = inputs[name];
-      var isValid = this.runValidation(component);
+      var errors = this.runValidation(component);
+      var isValid = (errors.length) ? false : true;
       component.setState({
         _isValid: isValid,
+        _errors: errors,
         _serverError: null
       }, index === inputKeys.length - 1 ? onValidationComplete : null);
     }.bind(this));
