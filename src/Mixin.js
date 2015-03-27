@@ -4,6 +4,7 @@ module.exports = {
       _value: this.props.value ? this.props.value : '',
       _isValid: true,
       _errors: [],
+      _serverErrors: [],
       _isPristine: true
     };
   },
@@ -104,15 +105,14 @@ module.exports = {
   hasValue: function () {
     return this.state._value !== '';
   },
-  getErrorMessage: function () {
+  getErrorMessages: function () {
     if (this.isValid()) {
       return [];
-    } else if (this.state._serverError) {
-      return [this.state._serverError];
+    } else if (this.state._serverErrors.length > 0) {
+      return this.state._serverErrors;
     } else {
       return this.state._errors;
     }
-    // return this.isValid() || this.showRequired() ? null : this.state._serverError || this.props.validationError;
   },
   isFormDisabled: function () {
     return this.props._isFormDisabled();

@@ -141,7 +141,7 @@ Formsy.Form = React.createClass({
 
       var args = [{
         _isValid: false,
-        _serverError: errors[name]
+        _serverErrors: errors[name]
       }];
       component.setState.apply(component, args);
     }.bind(this));
@@ -223,7 +223,7 @@ Formsy.Form = React.createClass({
 
     component.setState({
       _isValid: isValid,
-      _serverError: null,
+      _serverErrors: [],
       _errors: errors
     }, this.validateForm);
 
@@ -301,7 +301,7 @@ Formsy.Form = React.createClass({
       component.setState({
         _isValid: isValid,
         _errors: errors,
-        _serverError: null
+        _serverErrors: []
       }, index === inputKeys.length - 1 ? onValidationComplete : null);
     }.bind(this));
 
