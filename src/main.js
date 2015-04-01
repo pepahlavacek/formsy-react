@@ -29,6 +29,8 @@ Formsy.Form = React.createClass({
       onSuccess: function () {},
       onError: function () {},
       onSubmit: function () {},
+      onValidSubmit: function () {},
+      onInvalidSubmit: function () {},
       onSubmitted: function () {},
       onValid: function () {},
       onInvalid: function () {},
@@ -61,6 +63,10 @@ Formsy.Form = React.createClass({
 
         this.registerInputs(this.props.children);
 
+       if (this.props.validationErrors) {
+          this.setInputValidationErrors(this.props.validationErrors);
+        }
+
         var newInputKeys = Object.keys(this.inputs);
         if (utils.arraysDiffer(inputKeys, newInputKeys)) {
           this.validateForm();
@@ -85,7 +91,9 @@ Formsy.Form = React.createClass({
     // if wanting to reset the entire form to original state, the second param is a callback for this.
     if (!this.props.url) {
       this.updateModel();
-      this.props.onSubmit(this.mapModel(), this.resetModel, this.updateInputsWithError);
+      var model = this.mapModel();
+      this.props.onSubmit(model, this.resetModel, this.updateInputsWithError);
+      this.state.isValid ? this.props.onValidSubmit(model, this.resetModel) : this.props.onInvalidSubmit(model, this.resetModel);
       return;
     }
 
@@ -128,6 +136,17 @@ Formsy.Form = React.createClass({
     this.validateForm();
   },
 
+  setInputValidationErrors: function (errors) {
+     Object.keys(this.inputs).forEach(function (name, index) {
+      var component = this.inputs[name];
+      var args = [{
+        _isValid: !(name in errors),
+        _serverError: errors[name]
+      }];
+      component.setState.apply(component, args);
+    }.bind(this));   
+  },
+
   // Go through errors from server and grab the components
   // stored in the inputs map. Change their state to invalid
   // and set the serverError message
@@ -167,6 +186,7 @@ Formsy.Form = React.createClass({
         child.props._detachFromForm = this.detachFromForm;
         child.props._validate = this.validate;
         child.props._isFormDisabled = this.isFormDisabled;
+        child.props._isValidValue = this.runValidation;
       }
 
       if (child && child.props && child.props.children) {
@@ -212,14 +232,15 @@ Formsy.Form = React.createClass({
       this.props.onChange(this.getCurrentValues());
     }
 
-    if (!component.props.required && !component._validations) {
-      return;
-    }
+    var isValid = true;
+    var errors = [];
 
-    // Run through the validations, split them up and call
-    // the validator IF there is a value or it is required
-    var errors = this.runValidation(component);
-    var isValid = (errors.length) ? false : true;
+    if (component.validate && typeof component.validate === 'function') {
+      isValid = component.validate();
+    } else if (component.props.required || component._validations) {
+      errors = this.runValidation(component);
+      isValid = (errors.length) ? false : true;
+    }
 
     component.setState({
       _isValid: isValid,
@@ -229,11 +250,15 @@ Formsy.Form = React.createClass({
 
   },
 
-  runValidation: function (component) {
+  // Checks validation on current value or a passed value
+  runValidation: function (component, value) {
+
     var isValid = true;
     var errors = [];
-    if (component._validations.length && (component.props.required || component.state._value !== '')) {
-      component._validations.split(',').forEach(function (validation) {
+    
+    value = arguments.length === 2 ? value : component.state._value;
+    if (component._validations.length && (component.props.required || value !== '')) {
+      component._validations.split(/\,(?![^{\[]*[}\]])/g).forEach(function (validation) {
         var args = validation.split(':');
         var validateMethod = args.shift();
         args = args.map(function (arg) {
@@ -243,7 +268,7 @@ Formsy.Form = React.createClass({
             return arg; // It is a string if it can not parse it
           }
         });
-        args = [component.state._value].concat(args);
+        args = [value].concat(args);
         if (!validationRules[validateMethod]) {
           throw new Error('Formsy does not have the validation rule: ' + validateMethod);
         }
@@ -254,6 +279,12 @@ Formsy.Form = React.createClass({
           isValid = false;
         }
       }.bind(this));
+    }
+
+    if (typeof component.checkValidity === "function") {
+      // the component defines an explicit checkValidity function
+      isValid = component.checkValidity()
+      errors.push("Invalid Field");
     }
 
     return errors;

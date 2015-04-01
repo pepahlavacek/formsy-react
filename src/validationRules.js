@@ -73,7 +73,7 @@ module.exports = {
     return "";
   },
   equalsField: function (value, field) {
-    if (value !== this[field]) {
+    if (value != this[field]) {
       return "This field has to match " + field
     }
 

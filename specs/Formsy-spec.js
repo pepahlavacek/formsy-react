@@ -152,7 +152,7 @@ describe('Formsy', function () {
 
         });
 
-      }, 10);
+      }, 0);
 
     });
 
@@ -207,66 +207,103 @@ describe('Formsy', function () {
 
     });
 
+    describe('validations', function() {
+      var CheckValid, onSubmit, OtherCheckValid;
+      var isValid;
 
-    it('should invalidate a valid form if dynamically inserted input is invalid', function (done) {
-
-      var forceUpdate = null;
-      var isInvalid = false;
       var TestInput = React.createClass({
         mixins: [Formsy.Mixin],
         changeValue: function (event) {
           this.setValue(event.target.value);
         },
         render: function () {
-          return <input value={this.getValue()} onChange={this.changeValue}/>
+          return <input value={ this.getValue() } onChange={ this.changeValue } />
         }
       });
-
-
-      var inputs = [TestInput({
-        name: 'test',
-        validations: 'isEmail',
-        value: 'foo@bar.com'
-      })];
 
       var TestForm = React.createClass({
-        componentWillMount: function () {
-          forceUpdate = this.forceUpdate.bind(this);
-        },
-        setInvalid: function () {
-          isInvalid = true;
+        getDefaultProps: function() {
+          return {
+            inputs: [],
+          };
         },
         render: function () {
-          return ( 
-            <Formsy.Form onInvalid={this.setInvalid}> 
-              {inputs}
-            </Formsy.Form>);
+          var builtInputs = [];
+          var inputs = this.props.inputs;
+          for (var i=0; i < inputs.length; i++) {
+            var input = inputs[i];
+            builtInputs.push(<TestInput { ...input } key={ input.name } />);
+          }
+          var _this = this;
+          return <Formsy.Form
+            onSubmit  = { function(arg1) { onSubmit(arg1); } }
+            onValid   = { function() { isValid = true; } }
+            onInvalid = { function() { isValid = false; } } >
+            { builtInputs }
+          </Formsy.Form>;
         }
       });
-      var form = TestUtils.renderIntoDocument( 
-        <TestForm/> 
-      );
 
-      expect(isInvalid).toBe(false);
-
-      inputs.push(TestInput({
-        name: 'test2',
-        validations: 'isEmail',
-        value: 'foo@bar'
-      }));
-
-
-      forceUpdate(function () {
-
-        // Wait for next event loop, as that does the form
-        setTimeout(function () {
-          TestUtils.Simulate.submit(form.getDOMNode());
-          expect(isInvalid).toBe(true);
-          done();
-        }, 0);
-
+      beforeEach(function() {
+        isValid = true;
+        CheckValid = jasmine.createSpy('CheckValid');
+        Formsy.addValidationRule('CheckValid', CheckValid);
+        OtherCheckValid = jasmine.createSpy('CheckValid');
+        Formsy.addValidationRule('OtherCheckValid', OtherCheckValid);
+        onSubmit = jasmine.createSpy('onSubmit');
       });
 
+      it('should run when the input changes', function() {
+        var form = TestUtils.renderIntoDocument(<TestForm inputs={ [{name: 'one', validations: 'CheckValid', value: 'foo'}] }/>);
+        var input = TestUtils.findRenderedDOMComponentWithTag(form, 'input');
+        TestUtils.Simulate.change(input.getDOMNode(), {target: {value: 'bar'}});
+        expect(CheckValid).toHaveBeenCalledWith('bar');
+        expect(OtherCheckValid).not.toHaveBeenCalled();
+      });
+
+      it('should allow the validation to be changed', function() {
+        var form = TestUtils.renderIntoDocument(<TestForm inputs={ [{name: 'one', validations: 'CheckValid', value: 'foo'}] }/>);
+        form.setProps({inputs: [{name: 'one', validations: 'OtherCheckValid', value: 'foo'}] });
+        var input = TestUtils.findRenderedDOMComponentWithTag(form, 'input');
+        TestUtils.Simulate.change(input.getDOMNode(), {target: {value: 'bar'}});
+        expect(OtherCheckValid).toHaveBeenCalledWith('bar');
+      });
+
+      it('should invalidate a form if dynamically inserted input is invalid', function(done) {
+        var form = TestUtils.renderIntoDocument(<TestForm inputs={ [{name: 'one', validations: 'isEmail', value: 'foo@bar.com'}] }/>);
+        expect(isValid).toEqual(true);
+        form.setProps({inputs: [
+          {name: 'one', validations: 'isEmail', value: 'foo@bar.com'},
+          {name: 'two', validations: 'isEmail', value: 'foo@bar'},
+        ]}, function() {
+          setTimeout(function() {
+            expect(isValid).toEqual(false);
+            done();
+          }, 0);
+        });
+      });
+
+      it('should validate a form when removing an invalid input', function(done) {
+        var form = TestUtils.renderIntoDocument(<TestForm inputs={ [
+          {name: 'one', validations: 'isEmail', value: 'foo@bar.com'},
+          {name: 'two', validations: 'isEmail', value: 'foo@bar'},
+        ] } />);
+        expect(isValid).toEqual(false);
+        form.setProps({inputs: [{name: 'one', validations: 'isEmail', value: 'foo@bar.com'}]}, function() {
+          setTimeout(function() {
+            expect(isValid).toEqual(true);
+            done();
+          }, 0);
+        });
+      });
+
+      it('runs multiple validations', function() {
+        var form = TestUtils.renderIntoDocument(<TestForm inputs={ [{name: 'one', validations: 'CheckValid,OtherCheckValid', value: 'foo'}] }/>);
+        var input = TestUtils.findRenderedDOMComponentWithTag(form, 'input');
+        TestUtils.Simulate.change(input.getDOMNode(), {target: {value: 'bar'}});
+        expect(CheckValid).toHaveBeenCalledWith('bar');
+        expect(OtherCheckValid).toHaveBeenCalledWith('bar');
+      });
     });
 
     it('should not trigger onChange when form is mounted', function () {
@@ -401,6 +438,165 @@ describe('Formsy', function () {
 
     });
 
+    it('should be possible to pass error state of elements by changing an errors attribute', function (done) {
+
+      var TestInput = React.createClass({
+        mixins: [Formsy.Mixin],
+        render: function () {
+          return <input value={this.getValue()}/>;
+        }
+      });
+      var TestForm = React.createClass({
+        getInitialState: function () {
+          return {
+            validationErrors: {
+              foo: 'bar'
+            }
+          };
+        },
+        onChange: function (values) {
+          if (values.foo) {
+            this.setState({
+              validationErrors: {}
+            });
+          } else {
+            this.setState({
+              validationErrors: {foo: 'bar'}
+            });
+          }
+        },
+        render: function () {
+          return ( 
+            <Formsy.Form onChange={this.onChange} validationErrors={this.state.validationErrors}> 
+              <TestInput name="foo"/>
+            </Formsy.Form>);
+        }
+      });
+      var form = TestUtils.renderIntoDocument( 
+        <TestForm/> 
+      );
+
+      // Wait for update
+      setTimeout(function () {
+        var input = TestUtils.findRenderedComponentWithType(form, TestInput);
+        expect(input.getErrorMessage()).toBe('bar');
+        input.setValue('gotValue');
+
+        // Wait for update
+        setTimeout(function () {
+          expect(input.getErrorMessage()).toBe(null);
+          done();
+        }, 0);
+      }, 0);
+
+    });
+
+
+    it('should trigger an onValidSubmit when submitting a valid form', function () {
+
+        var isCalled = false;
+        var TestInput = React.createClass({
+          mixins: [Formsy.Mixin],
+          render: function () {
+            return <input value={this.getValue()}/>;
+          }
+        });
+        var TestForm = React.createClass({
+          onValidSubmit: function () {
+            isCalled = true;
+          },
+          render: function () {
+            return ( 
+              <Formsy.Form onValidSubmit={this.onValidSubmit}> 
+                <TestInput name="foo" validations="isEmail" value="foo@bar.com"/>
+              </Formsy.Form>);
+          }
+        });
+        var form = TestUtils.renderIntoDocument( 
+          <TestForm/> 
+        );
+
+        var TestForm = TestUtils.findRenderedComponentWithType(form, TestForm);
+        TestUtils.Simulate.submit(TestForm.getDOMNode());  
+        expect(isCalled).toBe(true);
+
+    });
+
+    it('should trigger an onInvalidSubmit when submitting an invalid form', function () {
+
+        var isCalled = false;
+        var TestInput = React.createClass({
+          mixins: [Formsy.Mixin],
+          render: function () {
+            return <input value={this.getValue()}/>;
+          }
+        });
+        var TestForm = React.createClass({
+          onInvalidSubmit: function () {
+            isCalled = true;
+          },
+          render: function () {
+            return ( 
+              <Formsy.Form onInvalidSubmit={this.onInvalidSubmit}> 
+                <TestInput name="foo" validations="isEmail" value="foo@bar"/>
+              </Formsy.Form>);
+          }
+        });
+        var form = TestUtils.renderIntoDocument( 
+          <TestForm/> 
+        );
+
+        var TestForm = TestUtils.findRenderedComponentWithType(form, TestForm);
+        TestUtils.Simulate.submit(TestForm.getDOMNode());  
+        expect(isCalled).toBe(true);
+
+    });
+
   });
 
+  describe("value === false", function() {
+    var onSubmit;
+    var TestInput = React.createClass({
+      mixins: [Formsy.Mixin],
+      getDefaultProps: function() {
+        return {
+          type: "text",
+        };
+      },
+      changeValue: function() {
+        this.setValue(e.target[this.props.type === "checkbox" ? "checked" : "value"]);
+      },
+      render: function () {
+        return <input type={ this.props.type } value={ this.getValue() } onChange={ this.changeValue }/>
+      }
+    });
+
+    var TestForm = React.createClass({
+      render: function () {
+        return (
+          <Formsy.Form onSubmit={ function(arg1) { onSubmit(arg1); } }>
+            <TestInput name="foo" value={ this.props.value } type="checkbox" />
+            <button type="submit">Save</button>
+          </Formsy.Form>
+        );
+      }
+    });
+
+    beforeEach(function() {
+      onSubmit = jasmine.createSpy("onSubmit");
+    });
+
+    it("should call onSubmit correctly", function() {
+      var form = TestUtils.renderIntoDocument(<TestForm value={ false }/>);
+      TestUtils.Simulate.submit(form.getDOMNode());
+      expect(onSubmit).toHaveBeenCalledWith({foo: false});
+    });
+
+    it("should allow dynamic changes to false", function() {
+      var form = TestUtils.renderIntoDocument(<TestForm value={ true }/>);
+      form.setProps({value: false});
+      TestUtils.Simulate.submit(form.getDOMNode());
+      expect(onSubmit).toHaveBeenCalledWith({foo: false});
+    });
+  });
 });

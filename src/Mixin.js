@@ -1,11 +1,13 @@
 module.exports = {
   getInitialState: function () {
+    var value = 'value' in this.props ? this.props.value : '';
     return {
-      _value: this.props.value ? this.props.value : '',
+      _value: value,
       _isValid: true,
       _errors: [],
       _serverErrors: [],
-      _isPristine: true
+      _isPristine: true,
+      _pristineValue: value
     };
   },
   componentWillMount: function () {
@@ -61,7 +63,8 @@ module.exports = {
     // the value, set the value again running a validation
 
     if (prevProps.validations !== this.props.validations || isValueChanged()) {
-      this.setValue(this.props.value || '');
+      var value = 'value' in this.props ? this.props.value : '';
+      this.setValue(value);
     }
   },
 
@@ -93,7 +96,7 @@ module.exports = {
   },
   resetValue: function () {
     this.setState({
-      _value: '',
+      _value: this.state._pristineValue,
       _isPristine: true
     }, function () {
       this.props._validate(this);
@@ -131,5 +134,8 @@ module.exports = {
   },
   showError: function () {
     return !this.showRequired() && !this.state._isValid;
+  },
+  isValidValue: function (value) {
+    return this.props._isValidValue.call(null, this, value);
   }
 };

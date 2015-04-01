@@ -16,6 +16,7 @@ A form input builder and validator for React JS
     - [method](#method)
     - [contentType](#contenttype)
     - [mapping](#mapping)
+    - [validationErrors](#validationerrors)
     - [onSuccess()](#onsuccess)
     - [onSubmit()](#onsubmit)
     - [onSubmitted()](#onsubmitted)
@@ -35,6 +36,7 @@ A form input builder and validator for React JS
     - [resetValue()](#resetvalue)
     - [getErrorMessage()](#geterrormessage)
     - [isValid()](#isvalid)
+    - [isValidValue()](#isvalidvalue)
     - [isRequired()](#isrequired)
     - [showRequired()](#showrequired)
     - [showError()](#showerror)
@@ -75,6 +77,8 @@ The main concept is that forms, inputs and validation is done very differently a
 
 ## <a name="howtouse">How to use</a>
 
+See `examples` folder for live examples.
+
 #### Formsy gives you a form straight out of the box
 
 ```javascript
@@ -105,7 +109,7 @@ The main concept is that forms, inputs and validation is done very differently a
   });
 ```
 
-This code results in a form with a submit button that will POST to /users when clicked. The submit button is disabled as long as the input is empty (required) or the value is not an email (isEmail). On validation error it will show the message: "This is not a valid email".
+This code results in a form with a submit button that will POST to /users when clicked. The submit button is disabled as long as the input is empty ([required](#required)) or the value is not an email ([isEmail](#validators)). On validation error it will show the message: "This is not a valid email".
 
 #### Building a form element (required)
 ```javascript
@@ -174,7 +178,7 @@ Sets a class name on the form itself.
 ```html
 <Formsy.Form url="/users"></Formsy.Form>
 ```
-Will either **POST** or **PUT** to the url specified when submitted. If you do not pass a url the data for the form will be passed to the **onSubmit** handler.
+Will either **POST** or **PUT** to the url specified when submitted. If you do not pass a url the data for the form will be passed to the [**onSubmit**](#onsubmitdata-resetform-invalidateform) handler.
 
 #### <a name="method">method</a>
 ```html
@@ -210,6 +214,39 @@ var MyForm = React.createClass({
 })
 ```
 Use mapping to change the data structure of your input elements. This structure is passed to the onSubmit handler and/or to the server on submitting, depending on how you submit the form.
+
+#### <a name="validationerrors">validationErrors</a>
+You can manually pass down errors to your form. In combination with `onChange` you are able to validate using an external validator.
+
+```js
+var Form = React.createClass({
+  getInitialState: function () {
+    return {
+      validationErrors: {}
+    };
+  },
+  validateForm: function (values) {
+    if (!values.foo) {
+      this.setState({
+        validationErrors: {
+          foo: 'Has no value'
+        }
+      });
+    } else {
+      this.setState({
+        validationErrors: {}
+      });
+    }
+  },
+  render: function () {
+    return (
+      <Formsy.Form onChange={this.validateForm} validationErrors={this.state.validationErrors}>
+        <MyFormElement name="foo"/>
+      </Formsy.Form>
+    );
+  }
+});
+```
 
 #### <a name="onsuccess">onSuccess(serverResponse)</a>
 ```html
@@ -269,14 +306,14 @@ The name is required to register the form input component in the form.
 ```html
 <MyInputComponent name="email" value="My default value"/>
 ```
-You should always use the **getValue()** method inside your formsy form element. To pass a default value, use the value attribute.
+You should always use the [**getValue()**](#getvalue) method inside your formsy form element. To pass a default value, use the value attribute.
 
 #### <a name="validations">validations</a>
 ```html
 <MyInputComponent name="email" validations="isEmail"/>
 <MyInputComponent name="number" validations="isNumeric,isLength:5:12"/>
 ```
-An comma seperated list with validation rules. Take a look at **Validators** to see default rules. Use ":" to separate arguments passed to the validator. The arguments will go through a **JSON.parse** converting them into correct JavaScript types. Meaning:
+An comma seperated list with validation rules. Take a look at [**Validators**](#validators) to see default rules. Use ":" to separate arguments passed to the validator. The arguments will go through a **JSON.parse** converting them into correct JavaScript types. Meaning:
 
 ```html
 <MyInputComponent name="fruit" validations="isIn:['apple', 'orange']"/>
@@ -403,6 +440,33 @@ var MyInput = React.createClass({
 ```
 Returns the valid state of the form input component.
 
+#### <a name="isvalidvalue">isValidValue()</a>
+You can pre-verify a value against the passed validators to the form element.
+
+```javascript
+var MyInput = React.createClass({
+  mixins: [Formsy.Mixin],
+  changeValue: function (event) {
+    if (this.isValidValue(event.target.value)) {
+      this.setValue(event.target.value);
+    }
+  },
+  render: function () {
+    return <input type="text" onChange={this.changeValue} value={this.getValue()}/>;
+  }
+});
+
+var MyForm = React.createClass({
+  render: function () {
+    return (
+      <Formsy.Form>
+        <MyInput name="foo" validations="isEmail"/>
+      </Formsy.Form>
+    );
+  }
+});
+```
+
 #### <a name="isrequired">isRequired()</a>
 ```javascript
 var MyInput = React.createClass({
@@ -480,9 +544,9 @@ var MyInput = React.createClass({
   }
 });
 ```
-By default all formsy input elements are pristine, which means they are not "touched". As soon as the **setValue** method is run it will no longer be pristine.
+By default all formsy input elements are pristine, which means they are not "touched". As soon as the [**setValue**](#setvaluevalue) method is run it will no longer be pristine.
 
-**note!** When the form is reset, using the resetForm callback function on **onSubmit** the inputs are not reset to pristine.
+**note!** When the form is reset, using the resetForm callback function on [**onSubmit**](#onsubmitdata-resetform-invalidateform) the inputs are not reset to pristine.
 
 #### <a name="ispristine">isFormDisabled()</a>
 ```javascript
