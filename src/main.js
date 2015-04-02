@@ -20,6 +20,7 @@ Formsy.Form = React.createClass({
     return {
       isValid: true,
       isSubmitting: false,
+      errors: [],
       canChange: false
     };
   },

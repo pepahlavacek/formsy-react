@@ -1,6 +1,6 @@
 module.exports = {
   'isValue': function (value) {
-    if (value === '') {
+    if (!value || value.length < 1) {
       return "This is a required field";
     }
     return "";
