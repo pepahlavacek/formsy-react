@@ -10,6 +10,11 @@ module.exports = {
       _pristineValue: value
     };
   },
+  getDefaultProps: function() {
+    return {
+      showErrors: false
+    }
+  },
   componentWillMount: function () {
 
     var configure = function () {
@@ -45,7 +50,6 @@ module.exports = {
   componentDidUpdate: function (prevProps, prevState) {
 
     var isValueChanged = function () {
-      
       return (
         this.props.value !== prevProps.value && (
           this.state._value === prevProps.value ||
@@ -133,7 +137,7 @@ module.exports = {
     return this.isRequired() && this.state._value === '';
   },
   showError: function () {
-    return !this.showRequired() && !this.state._isValid;
+    return this.props.showErrors && !this.state._isValid;
   },
   isValidValue: function (value) {
     return this.props._isValidValue.call(null, this, value);
